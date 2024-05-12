@@ -1,5 +1,6 @@
 const http = require('http');
 const fs = require('fs');
+const querystring = require('querystring');
 
 const cats = [
     {
@@ -47,15 +48,13 @@ const views = {
 }
 
 const server = http.createServer((req, res) => {
-
     if(req.url === '/') {
-        
-        render(views.cat, cats[1], (err, catResult) => {
+        render(views.cat, cats, (err, catResult) => {
             if (err) {
                 res.statusCode = 404;
                 return res.end();
              }
-             render(views.home, {cats: catResult}, (err, result) => {
+             render(views.home, [{cats: catResult}], (err, result) => {
                 res.writeHead(200, {
                     'content-type': 'text/html'
                 });
@@ -77,7 +76,7 @@ const server = http.createServer((req, res) => {
             res.write(result)
             res.end();
         });
-    } else if (req.url === '/cats/add-cat') {
+    } else if (req.url === '/cats/add-cat' && req.method === 'GET') {
         fs.readFile(views.addCat, 'utf-8', (err, result) => {
             //TODO: error handling
 
@@ -87,6 +86,25 @@ const server = http.createServer((req, res) => {
             res.write(result)
             res.end();
         });
+    } else if (req.url === '/cats/add-cat' && req.method === 'POST') {
+        let body = '';
+
+        req.on('data', (chunk) => {
+            body += chunk;
+        });
+
+        req.on('close', () => {
+            const parsedBody = querystring.parse(body);
+            parsedBody.id = cats[cats.length - 1].id + 1;
+             
+            cats.push(parsedBody);
+
+            res.writeHead(302, {
+                'location': '/'
+            });
+            res.end();
+        })
+
     } else if (req.url === '/cats/add-breed') {
         fs.readFile(views.addBreed, 'utf-8', (err, result) => {
         if (err) {
@@ -109,18 +127,20 @@ const server = http.createServer((req, res) => {
 
 });
 
-const render = (view, data, callback) => {
+const render = (view, dataArr, callback) => {
     fs.readFile(view, 'utf-8', (err, result) => {
         if (err) {
-            console.log('Error in render')
             return callback(err);
         }
 
-        const htmlResult = Object.keys(data).reduce((acc, key) => {
-            const pattern = new RegExp(`{{${key}}}`, 'g');
-
-            return acc.replace(pattern, data[key]);
-        }, result);
+        const htmlResult = dataArr.map(data => {
+            
+           return Object.keys(data).reduce((acc, key) => {
+                const pattern = new RegExp(`{{${key}}}`, 'g');
+                
+                return acc.replace(pattern, data[key]);
+            }, result);
+        }).join('\n');
         
         callback(null, htmlResult);
     });
