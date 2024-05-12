@@ -42,23 +42,27 @@ const views = {
      home: './views/home.html',
      addCat: './views/addCat.html',
      style: './views/site.css',
+     cat: './views/partials/cat.html',
      addBreed: './views/addBreed.html',
 }
 
 const server = http.createServer((req, res) => {
 
     if(req.url === '/') {
-        fs.readFile(views.home, {encoding: 'utf-8'}, (err, result) => {
-             if (err) {
+        
+        render(views.cat, cats[1], (err, catResult) => {
+            if (err) {
                 res.statusCode = 404;
                 return res.end();
              }
-
-             res.writeHead(200, {
-                 'content-type': 'text/html'
-             });
-             res.write(result);
-             res.end();
+             render(views.home, {cats: catResult}, (err, result) => {
+                res.writeHead(200, {
+                    'content-type': 'text/html'
+                });
+                res.write(result);
+                res.end();
+             })
+             
         });
     } else if (req.url === '/styles/site.css') {
         fs.readFile(views.style, 'utf-8', (err, result) => {
@@ -104,6 +108,23 @@ const server = http.createServer((req, res) => {
     }
 
 });
+
+const render = (view, data, callback) => {
+    fs.readFile(view, 'utf-8', (err, result) => {
+        if (err) {
+            console.log('Error in render')
+            return callback(err);
+        }
+
+        const htmlResult = Object.keys(data).reduce((acc, key) => {
+            const pattern = new RegExp(`{{${key}}}`, 'g');
+
+            return acc.replace(pattern, data[key]);
+        }, result);
+        
+        callback(null, htmlResult);
+    });
+};
 
 server.listen(5000);
 console.log('Server is running on port 5000...');
